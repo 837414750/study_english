@@ -1,0 +1,38 @@
+# 推送到 GitHub 后自动在云端打包 APK，打包好的文件在 Actions → 本次运行 → Artifacts 里下载。
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Cache Vosk model
+        uses: actions/cache@v4
+        with:
+          path: www/models
+          key: vosk-model-small-en-us-0.15
+
+      - name: Build
+        run: bash scripts/build-apk.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: squirrel-english-apk
+          path: dist/squirrel-english.apk

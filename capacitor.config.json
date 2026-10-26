@@ -1,0 +1,13 @@
+{
+  "appId": "com.family.squirrelenglish",
+  "appName": "松鼠英语岛",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

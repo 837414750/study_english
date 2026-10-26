@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#F6E7C8">
+  <title>松鼠英语岛</title>
+  <link rel="icon" href="assets/icon-512.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <div id="app"><div class="boot">🐿️<p>松鼠英语岛 加载中……</p></div></div>
+  <!-- 离线语音识别引擎（打包时由 scripts/prepare-assets.sh 复制进来；缺失时 App 自动降级为点选模式） -->
+  <script src="lib/vosk.js" onerror="console.warn('vosk.js 未找到：离线识别不可用')"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

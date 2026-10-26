@@ -1,0 +1,10 @@
+node_modules/
+android/
+dist/
+www/lib/vosk.js
+www/models/*.tar.gz
+
+# 系统 / IDE / 签名证书
+.DS_Store
+.idea/
+keystore/

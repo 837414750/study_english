@@ -1,0 +1,22 @@
+{
+  "name": "squirrel-english",
+  "version": "1.0.0",
+  "description": "松鼠英语岛 —— 上海四年级上册（上海教育出版社 2024 版）离线英语学习 App",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "node scripts/serve.mjs",
+    "prepare-assets": "bash scripts/prepare-assets.sh",
+    "apk": "bash scripts/build-apk.sh",
+    "check": "node scripts/selftest.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor-community/text-to-speech": "^6.0.0",
+    "vosk-browser": "^0.0.8"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
+  }
+}
