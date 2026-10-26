@@ -155,9 +155,13 @@ echo "  已生成 $APK"
 
 # ── 7/7 校验 APK 内容 ────────────────────────────────────────────────────────
 step "7/7 检查 APK 内容"
+# 这一段只是只读校验：关掉 errexit/pipefail，避免 grep 命中后提前关管道触发 Broken pipe 被误判为失败
+set +e +o pipefail
 PASS=0; FAIL=0
-list=$(unzip -l "$APK")
-has()  { echo "$list" | grep -q "$1"; }
+LIST_FILE="$(mktemp)"; TTS_FILE="$(mktemp)"
+unzip -l "$APK" > "$LIST_FILE"
+unzip -p "$APK" assets/capacitor.plugins.json > "$TTS_FILE" 2>/dev/null
+has()  { grep -q "$1" "$LIST_FILE"; }           # 基于临时文件，无管道，不会有 SIGPIPE
 ok()   { echo "  ✅ $1"; PASS=$((PASS+1)); }
 no()   { echo "  ❌ $1"; FAIL=$((FAIL+1)); }
 
@@ -168,21 +172,21 @@ if has "assets/public/js/content/units-a.js" && has "assets/public/js/content/un
 # 3 离线识别引擎
 if has "assets/public/lib/vosk.js"; then ok "离线识别引擎 vosk.js"; else no "vosk.js 缺失（请检查 prepare-assets）"; fi
 # 4 识别模型 >30MB
-MODEL_LINE=$(echo "$list" | grep "assets/public/models/.*\.tar\.gz" | head -1 || true)
-MODEL_BYTES=$(echo "$MODEL_LINE" | awk '{print $1}')
+MODEL_BYTES=$(grep -m1 "assets/public/models/.*\.tar\.gz" "$LIST_FILE" | awk '{print $1}')
 if [ -n "$MODEL_BYTES" ] && [ "$MODEL_BYTES" -gt 31457280 ]; then
   ok "识别模型 ($((MODEL_BYTES/1024/1024)) MB)"
 else
   no "识别模型缺失或过小（应 >30MB，实际 ${MODEL_BYTES:-0} 字节）"
 fi
 # 5 TextToSpeech 插件注册
-if unzip -p "$APK" assets/capacitor.plugins.json 2>/dev/null | grep -q "text-to-speech"; then
+if grep -q "text-to-speech" "$TTS_FILE" 2>/dev/null; then
   ok "TextToSpeech 插件已注册"
 elif unzip -p "$APK" classes.dex classes2.dex classes3.dex 2>/dev/null | grep -qa "TextToSpeechPlugin"; then
   ok "TextToSpeech 插件已编入"
 else
   no "没检测到 TextToSpeech 插件（原生发音可能不可用）"
 fi
+rm -f "$LIST_FILE" "$TTS_FILE"
 # 6 RECORD_AUDIO 权限
 AAPT=$(ls -d "$SDK"/build-tools/*/aapt 2>/dev/null | sort -V | tail -1 || true)
 if [ -n "$AAPT" ] && "$AAPT" dump permissions "$APK" 2>/dev/null | grep -q "android.permission.RECORD_AUDIO"; then
@@ -203,6 +207,7 @@ fi
 echo ""
 echo "  校验结果：$PASS/7 通过$([ "$FAIL" -gt 0 ] && echo "，$FAIL 项未通过" || true)"
 [ "$FAIL" -eq 0 ] || die "APK 校验未全部通过，请查看上面的 ❌ 项并修复根因后重新打包。"
+set -e  # 校验通过，恢复严格模式
 
 # ── 可选：安装到平板 ─────────────────────────────────────────────────────────
 if [ "$INSTALL" = 1 ]; then
