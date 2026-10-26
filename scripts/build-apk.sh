@@ -171,12 +171,14 @@ if has "assets/public/index.html" && has "assets/public/js/app.js"; then ok "网
 if has "assets/public/js/content/units-a.js" && has "assets/public/js/content/units-b.js"; then ok "课程内容（11 个单元）"; else no "课程内容缺失"; fi
 # 3 离线识别引擎
 if has "assets/public/lib/vosk.js"; then ok "离线识别引擎 vosk.js"; else no "vosk.js 缺失（请检查 prepare-assets）"; fi
-# 4 识别模型 >30MB
-MODEL_BYTES=$(grep -m1 "assets/public/models/.*\.tar\.gz" "$LIST_FILE" | awk '{print $1}')
-if [ -n "$MODEL_BYTES" ] && [ "$MODEL_BYTES" -gt 31457280 ]; then
-  ok "识别模型 ($((MODEL_BYTES/1024/1024)) MB)"
+# 4 识别模型 >30MB（以 www/models 源文件大小为准，最可靠；再确认已打进 APK）
+MODEL_SRC=$(ls -1 www/models/*.tar.gz 2>/dev/null | head -1)
+MODEL_BYTES=0; [ -n "$MODEL_SRC" ] && MODEL_BYTES=$(wc -c < "$MODEL_SRC" | tr -d ' ')
+MODEL_IN_APK=$(grep -c "assets/public/models/.*\.gz" "$LIST_FILE")
+if [ "${MODEL_BYTES:-0}" -gt 31457280 ] && [ "$MODEL_IN_APK" -ge 1 ]; then
+  ok "识别模型 ($((MODEL_BYTES/1024/1024)) MB，已打进 APK)"
 else
-  no "识别模型缺失或过小（应 >30MB，实际 ${MODEL_BYTES:-0} 字节）"
+  no "识别模型缺失或过小（源文件 ${MODEL_BYTES:-0} 字节，APK 内模型文件数 ${MODEL_IN_APK}）"
 fi
 # 5 TextToSpeech 插件注册
 if grep -q "text-to-speech" "$TTS_FILE" 2>/dev/null; then
