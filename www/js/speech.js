@@ -130,23 +130,30 @@ export function initASR() {
     if (window.Vosk && typeof window.Vosk.createModel === 'function') {
       asr.engine = 'vosk';
       setStatus('loading');
-      try {
-        if (!isNative) {
-          const head = await fetch(MODEL_URL, { method: 'HEAD' }).catch(() => null);
-          if (head && head.status === 404) throw new Error('模型文件不存在');
+      // 候选路径：安卓打包后模型可能被 aapt 改名（.tar.gz → .tar），逐个尝试。
+      // vosk 下载后按内容解压（固定存成 downloaded.tar.gz 再 gunzip），只要内容是 gzip 即可，与扩展名无关。
+      const candidates = [MODEL_URL, MODEL_URL.replace(/\.gz$/, '')];
+      let lastErr = null;
+      for (const rel of candidates) {
+        try {
+          if (!isNative) {
+            const head = await fetch(rel, { method: 'HEAD' }).catch(() => null);
+            if (head && head.status === 404) { lastErr = new Error('模型文件不存在：' + rel); continue; }
+          }
+          const url = new URL(rel, location.href).href;
+          asr.model = await Promise.race([
+            window.Vosk.createModel(url),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('加载超时')), 120000)),
+          ]);
+          setStatus('ready');
+          return;
+        } catch (e) {
+          console.warn('Vosk load failed for', rel, e);
+          asr.model = null;
+          lastErr = e;
         }
-        const url = new URL(MODEL_URL, location.href).href;
-        asr.model = await Promise.race([
-          window.Vosk.createModel(url),
-          new Promise((_, rej) => setTimeout(() => rej(new Error('加载超时')), 120000)),
-        ]);
-        setStatus('ready');
-        return;
-      } catch (e) {
-        console.warn('Vosk load failed', e);
-        asr.model = null;
-        if (!(WebSR && !isNative)) { setStatus('unavailable', '离线识别模型加载失败：' + (e?.message || e)); return; }
       }
+      if (!(WebSR && !isNative)) { setStatus('unavailable', '离线识别模型加载失败：' + (lastErr?.message || lastErr)); return; }
     }
     if (WebSR && !isNative) {
       asr.engine = 'webspeech';

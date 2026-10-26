@@ -176,9 +176,9 @@ MODEL_SRC=$(ls -1 www/models/*.tar.gz 2>/dev/null | head -1)
 MODEL_BYTES=0; [ -n "$MODEL_SRC" ] && MODEL_BYTES=$(wc -c < "$MODEL_SRC" | tr -d ' ')
 if [ "${MODEL_BYTES:-0}" -gt 31457280 ]; then
   ok "识别模型 ($((MODEL_BYTES/1024/1024)) MB)"
-  # 诊断：显示模型在 APK 内的真实路径（匹配不到也不影响通过，仅供排查）
-  APKPATH=$(grep -iE "models/" "$LIST_FILE" | awk '{print $NF}' | head -1)
-  [ -n "$APKPATH" ] && echo "     （APK 内模型路径：$APKPATH）" || echo "     （注：未按 models/ 在 APK 列表匹配到条目，但 APK 体积已含模型）"
+  # 诊断：原样打印 APK 内 models/ 条目（含大小与完整文件名），便于确认未被改名/解压
+  echo "     APK 内模型条目（大小 / 名称）："
+  grep -iE "models/.+" "$LIST_FILE" | sed 's/^/       /' || echo "       (未匹配到 models/ 条目)"
 else
   no "识别模型缺失或过小（源文件 ${MODEL_BYTES:-0} 字节，请检查 prepare-assets 是否成功下载）"
 fi
@@ -226,4 +226,5 @@ fi
 echo ""
 echo "✔ 打包完成：$APK  ($(du -h "$APK" | cut -f1))"
 echo "  把它传到小米平板（微信/数据线/网盘均可），点击安装即可。"
-[ "$RELEASE" = 1 ] && echo "  ⚠ 记得备份 keystore/ 目录，以后升级要用同一个证书。"
+if [ "$RELEASE" = 1 ]; then echo "  ⚠ 记得备份 keystore/ 目录，以后升级要用同一个证书。"; fi
+exit 0  # 显式成功退出：避免最后一条条件命令的返回码让脚本以非 0 结束

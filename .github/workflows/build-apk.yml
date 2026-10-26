@@ -36,6 +36,8 @@ jobs:
         run: bash scripts/build-apk.sh
 
       - uses: actions/upload-artifact@v4
+        if: always()   # 即使校验步骤报错也上传已生成的 APK，便于下载排查
         with:
           name: squirrel-english-apk
           path: dist/squirrel-english.apk
+          if-no-files-found: warn

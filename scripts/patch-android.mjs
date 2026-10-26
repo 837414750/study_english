@@ -37,6 +37,12 @@ if (fs.existsSync(appGradle)) {
   let g = fs.readFileSync(appGradle, 'utf8');
   g = g.replace(/versionCode\s+\d+/, `versionCode ${versionCode}`)
        .replace(/versionName\s+"[^"]*"/, `versionName "${pkg.version || '1.0.0'}"`);
+  // 关键：告诉 aapt 不要压缩/改动识别模型，保持 .tar.gz 原样打包（否则会被改成 .tar、
+  // 甚至解压，导致运行时 vosk 加载模型失败）。
+  if (!g.includes('androidResources') || !/noCompress[^\n]*gz/.test(g)) {
+    g = g.replace(/android\s*\{/, (m) => `${m}\n    androidResources {\n        noCompress 'tar.gz', 'tar', 'gz'\n    }`);
+    console.log("✔ 已为识别模型加 noCompress（保持 .tar.gz 原样打包）");
+  }
   fs.writeFileSync(appGradle, g);
   console.log(`✔ 版本号 versionName=${pkg.version} versionCode=${versionCode}`);
 }
