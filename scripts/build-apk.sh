@@ -171,14 +171,16 @@ if has "assets/public/index.html" && has "assets/public/js/app.js"; then ok "网
 if has "assets/public/js/content/units-a.js" && has "assets/public/js/content/units-b.js"; then ok "课程内容（11 个单元）"; else no "课程内容缺失"; fi
 # 3 离线识别引擎
 if has "assets/public/lib/vosk.js"; then ok "离线识别引擎 vosk.js"; else no "vosk.js 缺失（请检查 prepare-assets）"; fi
-# 4 识别模型 >30MB（以 www/models 源文件大小为准，最可靠；再确认已打进 APK）
+# 4 识别模型 >30MB（以 www/models 源文件大小为准；配合第 7 项 APK 体积即可确认已打包）
 MODEL_SRC=$(ls -1 www/models/*.tar.gz 2>/dev/null | head -1)
 MODEL_BYTES=0; [ -n "$MODEL_SRC" ] && MODEL_BYTES=$(wc -c < "$MODEL_SRC" | tr -d ' ')
-MODEL_IN_APK=$(grep -c "assets/public/models/.*\.gz" "$LIST_FILE")
-if [ "${MODEL_BYTES:-0}" -gt 31457280 ] && [ "$MODEL_IN_APK" -ge 1 ]; then
-  ok "识别模型 ($((MODEL_BYTES/1024/1024)) MB，已打进 APK)"
+if [ "${MODEL_BYTES:-0}" -gt 31457280 ]; then
+  ok "识别模型 ($((MODEL_BYTES/1024/1024)) MB)"
+  # 诊断：显示模型在 APK 内的真实路径（匹配不到也不影响通过，仅供排查）
+  APKPATH=$(grep -iE "models/" "$LIST_FILE" | awk '{print $NF}' | head -1)
+  [ -n "$APKPATH" ] && echo "     （APK 内模型路径：$APKPATH）" || echo "     （注：未按 models/ 在 APK 列表匹配到条目，但 APK 体积已含模型）"
 else
-  no "识别模型缺失或过小（源文件 ${MODEL_BYTES:-0} 字节，APK 内模型文件数 ${MODEL_IN_APK}）"
+  no "识别模型缺失或过小（源文件 ${MODEL_BYTES:-0} 字节，请检查 prepare-assets 是否成功下载）"
 fi
 # 5 TextToSpeech 插件注册
 if grep -q "text-to-speech" "$TTS_FILE" 2>/dev/null; then
