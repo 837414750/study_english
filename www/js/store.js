@@ -27,7 +27,9 @@ function defaults() {
     profile: { name: '', petName: '松果', onboarded: false, createdAt: new Date().toISOString() },
     settings: {
       passLine: 90, dailyMin: 20, showCN: true, rate: 0.8,
-      useGrammar: true, unlockAll: false, unlockedUpTo: 0, pin: '',
+      useGrammar: true, unlockAll: true, unlockedUpTo: 0, pin: '',
+      // 答题方式：'manual' 手动优先（点选/打字/自评，默认，识别不准也不影响）；'voice' 话筒优先
+      inputMode: 'manual',
     },
     progress: {},
     srs: {},
@@ -51,7 +53,13 @@ function load() {
     if (!raw) return defaults();
     const d = defaults();
     const s = JSON.parse(raw);
-    return { ...d, ...s, profile: { ...d.profile, ...s.profile }, settings: { ...d.settings, ...s.settings }, pet: { ...d.pet, ...s.pet }, daily: { ...d.daily, ...s.daily } };
+    const merged = { ...d, ...s, profile: { ...d.profile, ...s.profile }, settings: { ...d.settings, ...s.settings }, pet: { ...d.pet, ...s.pet }, daily: { ...d.daily, ...s.daily } };
+    // 一次性迁移旧存档（没有 inputMode 字段的）：启用全部解锁 + 手动优先，与新版默认一致。
+    if (s.settings && s.settings.inputMode === undefined) {
+      merged.settings.unlockAll = true;
+      merged.settings.inputMode = 'manual';
+    }
+    return merged;
   } catch (e) {
     console.warn('load state failed', e);
     return defaults();
@@ -117,13 +125,16 @@ export function unitPassed(uid) { return quizPassed(uid) && recitePassed(uid); }
 export function unitStagesDone(uid) { return STAGES.filter((s) => stageDone(uid, s.id)).length; }
 
 export function isUnlocked(uid) {
-  if (state.settings.unlockAll) return true;
+  // 全部岛屿默认开放（不再按测验/背诵过关逐个解锁）；家长仍可在设置里关掉"全部解锁"恢复逐关解锁。
+  if (state.settings.unlockAll !== false) return true;
   const units = BUILTIN_UNITS;
   const idx = units.findIndex((u) => u.id === uid);
   if (idx <= 0) return true;
   if (idx <= (state.settings.unlockedUpTo || 0)) return true;
   return unitPassed(units[idx - 1].id);
 }
+/** 答题方式：手动优先（点选/打字/自评）。识别不准，默认走手动，话筒作为可选。 */
+export const manualFirst = () => state.settings.inputMode !== 'voice';
 
 export function recordQuiz(uid, score, detail) {
   const q = prog(uid).quiz;

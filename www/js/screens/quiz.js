@@ -1,7 +1,7 @@
 // 单元测验：满分 100，≥过关线（默认 90）过关
 // 听力 20 · 词汇 20 · 语法 30 · 口语 20 · 阅读 10；没过关可以"只重做错题"
 import { h, shuffle, sample, sleep, mcq } from '../util.js';
-import { unitById, getUnits, recordQuiz, passLine, prog } from '../store.js';
+import { unitById, getUnits, recordQuiz, passLine, prog, manualFirst } from '../store.js';
 import { topbar, speakBtn, micButton, choiceGroup, celebrate, petSay, scoreBadge, asrBanner } from '../ui.js';
 import { speak, canListen, initASR } from '../speech.js';
 import { introduce, review, cardKey } from '../srs.js';
@@ -31,8 +31,9 @@ export function buildQuiz(u, asrOK) {
   // 语法：选择 ×4，连词成句 ×2
   sample(u.quiz.grammar, 4).forEach((q) => items.push({ sec: 'grammar', pts: 5, kind: 'mcq', q, srs: cardKey('g', u.id, q.q) }));
   sample(u.quiz.order, 2).forEach((s) => items.push({ sec: 'grammar', pts: 5, kind: 'order', s, srs: cardKey('s', u.id, s) }));
-  // 口语 ×2
-  u.quiz.speak.forEach((sp) => items.push({ sec: 'speak', pts: 10, kind: asrOK ? 'speak' : 'speakPick', sp, srs: cardKey('s', u.id, sp.answer) }));
+  // 口语 ×2：手动优先或没有识别时用"点选版"
+  const speakKind = (asrOK && !manualFirst()) ? 'speak' : 'speakPick';
+  u.quiz.speak.forEach((sp) => items.push({ sec: 'speak', pts: 10, kind: speakKind, sp, srs: cardKey('s', u.id, sp.answer) }));
   // 阅读 ×2
   u.quiz.reading.questions.forEach((q) => items.push({ sec: 'read', pts: 5, kind: 'read', q, text: u.quiz.reading.text }));
   return items;

@@ -1,7 +1,7 @@
 // 对话馆：和机器人 Robo 情景对话。可以说（离线识别 + 关键词匹配），也可以点选；卡住有提示和示范。
 // 第二轮可以"换角色"：孩子演 Robo。
 import { h, shuffle, sleep } from '../util.js';
-import { unitById, markStage, S, addXP } from '../store.js';
+import { unitById, markStage, S, addXP, manualFirst } from '../store.js';
 import { topbar, micButton, speakBtn, celebrate, asrBanner, choiceGroup } from '../ui.js';
 import { speak, canListen, initASR } from '../speech.js';
 import { matchExpect } from '../scoring.js';
@@ -100,7 +100,8 @@ export function render(root, [uid]) {
       };
       const hintBtn = h('button.btn.ghost.small', { onclick: () => { hintLevel = Math.min(2, hintLevel + 1); attempts = Math.max(attempts, 1); showHint(hintLevel); } }, '💡 提示');
       controls.append(mic, h('div.row.center', hintBtn, tapBtn), hintBox);
-      initASR().then(() => { if (!canListen()) tapBtn.click(); });
+      if (manualFirst()) { mic.classList.add('hide'); tapBtn.click(); }
+      else initASR().then(() => { if (!canListen()) tapBtn.click(); });
     });
   }
 

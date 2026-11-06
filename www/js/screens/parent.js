@@ -1,6 +1,6 @@
 // 家长中心：学习报告 · 录音与改判 · 内容池（自己往池子里加学习资料）· 设置 · 帮助
 import { h, toast, fmtDate, today, addDays } from '../util.js';
-import { S, save, getUnits, unitById, prog, STAGES, stageDone, customOf, exportContent, exportAll, importJSON, resetProgress, getAudio, passLine } from '../store.js';
+import { S, save, getUnits, unitById, prog, STAGES, stageDone, customOf, exportContent, exportAll, importJSON, resetProgress, getAudio, passLine, manualFirst } from '../store.js';
 import { topbar, speakBtn, modal } from '../ui.js';
 import { ttsStatus, openTtsInstall, asrState, initASR, playBlob, speak } from '../speech.js';
 import { mastery, weakItems } from '../srs.js';
@@ -209,18 +209,22 @@ function settings(p) {
   };
   const toggle = (key) => h('input.switch', { type: 'checkbox', checked: !!s[key], onchange: (e) => { s[key] = e.target.checked; save(); } });
 
+  const modeSel = h('select.inp', { onchange: (e) => { s.inputMode = e.target.value; save(); toast('已更新'); } },
+    h('option', { value: 'manual', selected: manualFirst() }, '手动优先（点选 / 打字，推荐）'),
+    h('option', { value: 'voice', selected: !manualFirst() }, '话筒优先（用说的）'));
   p.append(h('section.card', h('h3', '🎯 学习'),
+    row('答题方式', modeSel, '手动优先：口语题和对话用点选、背诵用打字，识别不准也不影响做题；话筒优先：尽量用说的（话筒在手动模式下仍可随时点开）'),
     row('过关分数线', range('passLine', 80, 95, 5, (v) => v + ' 分'), '测验和背诵都按这个分数判定过关（默认 90）'),
     row('每日建议时长', range('dailyMin', 10, 60, 5, (v) => v + ' 分钟'), '到时间小松鼠会提醒休息'),
     row('显示中文', toggle('showCN'), '关掉后只显示英文，适合进阶'),
     row('朗读语速', h('div', range('rate', 0.5, 1.1, 0.05, (v) => v.toFixed(2) + '×'), h('button.btn.small.ghost', { onclick: () => speak('Hello! This is my school. It is big and beautiful.') }, '试听')), '0.8 左右比较适合四年级'),
-    row('识别时限定词表', toggle('useGrammar'), '开启后识别更"宽容"、更准（推荐开启）；关闭则完全自由识别、更严格'),
+    row('识别时限定词表', toggle('useGrammar'), '仅"话筒优先"或点开话筒时有用：开启识别更"宽容"、更准（推荐开启）'),
   ));
   const upto = h('select.inp', { onchange: (e) => { s.unlockedUpTo = Number(e.target.value); save(); toast('已更新'); } },
     units.map((u, i) => h('option', { value: i, selected: (s.unlockedUpTo || 0) === i }, `${u.no ? 'Unit ' + u.no : 'Starter'} ${u.title}`)));
   p.append(h('section.card', h('h3', '🗺️ 岛屿解锁'),
-    row('学校已学到', upto, '此单元及之前的岛屿直接开放'),
-    row('全部解锁', toggle('unlockAll'), '复习期或者想预习时打开')));
+    row('学校已学到', upto, '影响"今日任务"优先安排哪个单元（所有岛屿默认都已开放）'),
+    row('全部解锁', toggle('unlockAll'), '默认开启：全部岛屿随意进入；关掉则改为按测验/背诵过关逐个解锁')));
 
   const nameIn = h('input.inp', { value: st.profile.name, onchange: (e) => { st.profile.name = e.target.value.trim(); save(); } });
   const petIn = h('input.inp', { value: st.profile.petName, onchange: (e) => { st.profile.petName = e.target.value.trim() || '松果'; save(); } });

@@ -2,7 +2,7 @@
 import { h, confetti, sleep } from './util.js';
 import { speak, listen, canListen, asrState, initASR, stopSpeak } from './speech.js';
 import { scoreSentence, buildGrammar } from './scoring.js';
-import { S, PET_LEVELS, petLevel } from './store.js';
+import { S, PET_LEVELS, petLevel, manualFirst } from './store.js';
 import { fx } from './audiofx.js';
 
 export function topbar(title, { back = '#/', sub = '', right = null, color = null } = {}) {
@@ -55,13 +55,26 @@ export function micButton(opts) {
   wrap.append(btn, label, partial);
   let ctl = null;
 
-  const fallback = () => {
+  const fallback = (hint = '（当前设备暂不能识别语音，大声读出来就好）') => {
     // 没有识别能力：改为"读完自评"
     const ok = h('button.btn.small', '✅ 我大声读完了');
     ok.onclick = () => { ok.remove(); opts.onResult?.({ score: null, fallback: true }); };
-    label.textContent = '（当前设备暂不能识别语音，大声读出来就好）';
+    label.textContent = hint;
     wrap.append(ok);
   };
+
+  // 手动优先：默认让孩子读给自己听、点"我读好了"，识别不准也不影响；想用话筒再点开。
+  if (manualFirst()) {
+    btn.classList.add('hide');
+    label.textContent = opts.label ? opts.label.replace(/点话筒[，,]?/, '').trim() || '读给自己听' : '读给自己听';
+    const ok = h('button.btn.small' + (opts.compact ? '.ghost' : ''), '✅ 我读好了');
+    const tryMic = h('button.btn.ghost.small', '🎤 想用话筒读一读');
+    ok.onclick = () => { row.remove(); label.textContent = '真棒！'; fx.ding(); opts.onResult?.({ score: null, fallback: true, manual: true }); };
+    tryMic.onclick = () => { row.remove(); btn.classList.remove('hide'); label.textContent = opts.label || '点话筒，跟着读'; };
+    const row = h('div.row.center', ok, tryMic);
+    wrap.append(row);
+    return wrap;
+  }
 
   btn.onclick = async () => {
     if (ctl) { ctl.stop(); return; }

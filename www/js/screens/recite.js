@@ -1,10 +1,10 @@
 // 背诵挑战：四步走（看全文 → 挖空 → 首字母 → 完全背诵），第 4 步计入过关分
 // 打分：完整度 50 + 准确度 30 + 流利度 20；没过关只需补背"橙色句子"
-import { h } from '../util.js';
-import { unitById, recordRecite, passLine, prog, saveRecording } from '../store.js';
+import { h, toast } from '../util.js';
+import { unitById, recordRecite, passLine, prog, saveRecording, manualFirst } from '../store.js';
 import { topbar, speakBtn, micButton, celebrate, petSay, scoreBadge, coloredText, asrBanner } from '../ui.js';
 import { listen, canListen, initASR, stopSpeak, playBlob } from '../speech.js';
-import { scoreReading, buildGrammar, normalize } from '../scoring.js';
+import { scoreReading, scoreSentence, buildGrammar, normalize } from '../scoring.js';
 import { introduce, cardKey } from '../srs.js';
 import { fx } from '../audiofx.js';
 
@@ -62,20 +62,54 @@ export function render(root, [uid]) {
 
   function fullRecord(P) {
     const box = h('section.card.full-rec');
-    const btn = h('button.btn-mic.huge', h('span.mic-ring'), h('span.mic-ico', '🎤'));
-    const label = h('div.mic-label', step === 4 ? '正式背诵（计入过关分）' : `整篇朗读练习（第 ${step} 步，不计过关分）`);
-    const live = h('div.mic-partial');
+    const label = h('div.mic-label');
+    const slot = h('div.rec-input-slot');
+    const toggleRow = h('div.center');
     const result = h('div.rec-result');
-    box.append(btn, label, live, result);
+    box.append(label, slot, toggleRow, result);
+    let typing = manualFirst();
+
+    const onScore = async (sc, res) => {
+      if (!alive) return;
+      const final = step === 4;
+      const key = res.blob ? await saveRecording({ uid, kind: 'recite', text: P.title, score: sc.total, final }, res.blob) : null;
+      recordRecite(uid, sc.total, { final, step, title: P.title, audioKey: key });
+      if (final) P.text.forEach((s) => introduce(cardKey('s', uid, s)));
+      showResult(result, P, sc, res, final);
+    };
+
+    const render = () => {
+      slot.innerHTML = ''; result.innerHTML = ''; toggleRow.innerHTML = '';
+      if (typing) {
+        label.textContent = step === 4 ? '打字背诵：凭记忆打出全文（计入过关分）' : `打字练习（第 ${step} 步，不计过关分）`;
+        const ta = h('textarea.inp.recite-type', { rows: Math.min(8, P.text.length + 2), placeholder: '凭记忆把全文打出来，一句一行。记不清就回到上面的步骤看看提示～' });
+        const btn = h('button.btn.big', '提交背诵 ✔');
+        btn.onclick = () => { const t = ta.value.trim(); if (!t) return toast('先把记得的内容打出来吧'); onScore(scoreReading(P.text, { text: t }), { text: t }); };
+        slot.append(ta, h('div.center', btn));
+        toggleRow.append(h('button.btn.ghost.small', { onclick: () => { typing = false; render(); } }, '🎤 想用话筒背一背'));
+      } else {
+        label.textContent = step === 4 ? '正式背诵（计入过关分）' : `整篇朗读练习（第 ${step} 步，不计过关分）`;
+        slot.appendChild(voiceRecorder(P, label, onScore));
+        toggleRow.append(h('button.btn.ghost.small', { onclick: () => { typing = true; render(); } }, '⌨️ 改用打字背诵'));
+      }
+    };
+    render();
+    return box;
+  }
+
+  function voiceRecorder(P, label, onScore) {
+    const wrap = h('div.voice-rec');
+    const btn = h('button.btn-mic.huge', h('span.mic-ring'), h('span.mic-ico', '🎤'));
+    const live = h('div.mic-partial');
+    wrap.append(btn, live);
     btn.onclick = async () => {
       if (ctl) { ctl.stop(); return; }
       await initASR();
-      if (!canListen()) { label.textContent = '当前设备不能识别语音，请家长在"家长中心 → 录音"里听孩子背诵后手动判定。'; return; }
+      if (!canListen()) { label.textContent = '当前设备不能识别语音，可点上面"改用打字背诵"，或让家长在"家长中心 → 录音"里人工判定。'; return; }
       await stopSpeak();
       fx.pop();
       btn.classList.add('on');
       label.textContent = '我在听……背完停一下就会自动结束（也可以再点一下话筒结束）';
-      result.innerHTML = '';
       const ring = btn.querySelector('.mic-ring');
       ctl = listen({
         grammar: buildGrammar(P.text), maxMs: 120000, silenceMs: 3000, noSpeechMs: 9000,
@@ -88,15 +122,10 @@ export function render(root, [uid]) {
       btn.classList.remove('on');
       if (!alive) return;
       if (!res.text) { label.textContent = '没有听到声音，再试一次吧！'; fx.buzz(); return; }
-      const sc = scoreReading(P.text, res);
-      const final = step === 4;
-      const key = res.blob ? await saveRecording({ uid, kind: 'recite', text: P.title, score: sc.total, final }, res.blob) : null;
-      recordRecite(uid, sc.total, { final, step, title: P.title, audioKey: key });
-      if (final) P.text.forEach((s) => introduce(cardKey('s', uid, s)));
-      showResult(result, P, sc, res, final);
+      onScore(scoreReading(P.text, res), res);
       label.textContent = '点话筒可以再来一次';
     };
-    return box;
+    return wrap;
   }
 
   function showResult(result, P, sc, res, final) {
@@ -131,21 +160,26 @@ export function render(root, [uid]) {
     weak.forEach((w) => {
       const words = normalize(w.text).length;
       let bestS = w.score;
-      result.appendChild(h('div.sent-row.weak',
-        h('div.sent-text', h('span', `${w.i + 1}. `), h('span.rc-line', maskSentence(w.text, 3)), h('small.muted', ` 原来 ${w.score} 分`)),
-        micButton({
-          target: w.text, compact: true, label: '补背这句',
-          onResult: (r) => {
-            if (r.score == null || r.score <= bestS) return;
-            const gain = (((r.score - bestS) / 100) * words / deficit) * room;
-            bestS = r.score;
-            current = Math.min(100, Math.round(current + gain));
-            now.innerHTML = '';
-            now.appendChild(h('b', `当前总分 ${current}`));
-            recordRecite(uid, current, { final: true, step: 4, title: P.title, patched: true });
-            if (current >= pl) celebrate({ score: current, pass: true, title: '补背成功，背诵过关！🎉', buttons: [h('a.btn', { href: `#/unit/${uid}` }, '回到岛屿')] });
-          },
-        })));
+      const apply = (score) => {
+        if (score == null || score <= bestS) return;
+        const gain = (((score - bestS) / 100) * words / deficit) * room;
+        bestS = score;
+        current = Math.min(100, Math.round(current + gain));
+        now.innerHTML = '';
+        now.appendChild(h('b', `当前总分 ${current}`));
+        recordRecite(uid, current, { final: true, step: 4, title: P.title, patched: true });
+        if (current >= pl) celebrate({ score: current, pass: true, title: '补背成功，背诵过关！🎉', buttons: [h('a.btn', { href: `#/unit/${uid}` }, '回到岛屿')] });
+      };
+      const row = h('div.sent-row.weak',
+        h('div.sent-text', h('span', `${w.i + 1}. `), h('span.rc-line', maskSentence(w.text, 3)), h('small.muted', ` 原来 ${w.score} 分`)));
+      if (manualFirst()) {
+        const inp = h('input.inp', { placeholder: '打出这句' });
+        const b = h('button.btn.small', { onclick: () => { const t = inp.value.trim(); if (!t) return; apply(scoreSentence(w.text, { text: t }).score); } }, '检查');
+        row.append(inp, b);
+      } else {
+        row.appendChild(micButton({ target: w.text, compact: true, label: '补背这句', onResult: (r) => apply(r.score) }));
+      }
+      result.appendChild(row);
     });
   }
 

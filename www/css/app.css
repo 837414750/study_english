@@ -446,6 +446,9 @@ h2 { font-size: 1.35rem; } h3 { font-size: 1.1rem; }
 .rc-line { letter-spacing: 0.02em; }
 .hidden-text { display: grid; gap: 8px; padding: 10px 20px; color: var(--miss); font-size: 1.2rem; }
 .full-rec { display: grid; justify-items: center; text-align: center; }
+.full-rec .rec-input-slot, .full-rec .rec-result { width: 100%; }
+.recite-type { width: 100%; min-height: 120px; margin: 8px 0; }
+.voice-rec { display: grid; justify-items: center; }
 .rec-result { width: 100%; text-align: left; }
 .score-row { display: flex; align-items: center; justify-content: center; gap: 24px; margin: 12px 0; }
 .breakdown { display: grid; gap: 4px; font-weight: 700; }
